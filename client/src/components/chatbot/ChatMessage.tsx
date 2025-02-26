@@ -23,8 +23,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ sender, content }) => {
         <div className={`flex w-full my-3 ${sender === "user" ? "justify-end" : "justify-start"}`}>
             <div
                 className={`relative p-5 rounded-xl shadow-lg transition-all duration-300 ${sender === "user"
-                    ? "ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white" // ✅ Updated Gradient for User Messages
-                    : "bg-gray-700 text-gray-200 border border-gray-600" // ✅ Gray Theme for AI Responses
+                    ? "ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                    : "bg-gray-700 text-gray-200 border border-gray-600"
                     }`}
                 style={{
                     maxWidth: "90%",
@@ -37,20 +37,14 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ sender, content }) => {
                 <h3 className="text-base font-semibold opacity-80 mb-3">
                     {sender === "user" ? "You" : "Chatbot"}
                 </h3>
-
                 {/* Render Markdown with Syntax Highlighting & Copy Button */}
                 <Markdown
                     remarkPlugins={[remarkGfm]}
                     components={{
-                        code({ inline, className, children }) {
+                        code({ className, children, ...props }) {
                             const match = /language-(\w+)/.exec(className || "");
-                            const codeContent = String(children).replace(/\n$/, "");
-
-                            return inline ? (
-                                <code className="bg-gray-700 px-2 py-1 rounded text-sm">
-                                    {children}
-                                </code>
-                            ) : (
+                            const codeContent = String(children).trim();
+                            return match ? (
                                 <div className="relative group">
                                     {/* Copy Button */}
                                     <button
@@ -63,17 +57,21 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ sender, content }) => {
                                             <FiClipboard className="text-gray-300" size={18} />
                                         )}
                                     </button>
-
                                     {/* Code Block */}
                                     <SyntaxHighlighter
+                                        {...props}
                                         style={oneDark}
-                                        language={match ? match[1] : "plaintext"}
+                                        language={match[1]}
                                         PreTag="div"
                                         className="rounded-md p-4 text-lg"
+                                        // Explicitly set ref to null to avoid type mismatch
+                                        ref={null}
                                     >
                                         {codeContent}
                                     </SyntaxHighlighter>
                                 </div>
+                            ) : (
+                                <code className="bg-gray-700 px-2 py-1 rounded text-sm">{children}</code>
                             );
                         },
                     }}
