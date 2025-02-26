@@ -1,45 +1,29 @@
-import { useChatRoom } from "@/context/ChatContext"
-import { useViews } from "@/context/ViewContext"
-import { VIEWS } from "@/types/view"
-import cn from "classnames"
+import { VIEWS } from "@/types/view";
+import cn from "classnames";
 
 interface ViewButtonProps {
-    viewName: VIEWS
-    icon: JSX.Element
+    viewName: VIEWS; // ✅ Ensuring `viewName` is always from `VIEWS`
+    icon: JSX.Element;
+    isActive: boolean;
+    onClick: () => void;
 }
 
-const ViewButton = ({ viewName, icon }: ViewButtonProps) => {
-    const { activeView, setActiveView, isSidebarOpen, setIsSidebarOpen } =
-        useViews()
-    const { isNewMessage } = useChatRoom()
-
-    const handleViewClick = () => {
-        if (viewName === activeView) {
-            setIsSidebarOpen(!isSidebarOpen)
-        } else {
-            setIsSidebarOpen(true)
-            setActiveView(viewName)
-        }
-    }
-
+const SidebarButton = ({ viewName, icon, isActive, onClick }: ViewButtonProps) => {
     return (
         <button
-            onClick={handleViewClick}
+            onClick={onClick}
             className={cn(
                 "relative flex items-center justify-center p-2 rounded-md transition-colors duration-200",
                 {
-                    "bg-gray-700": activeView === viewName,
-                    "hover:bg-gray-700": activeView !== viewName,
+                    "bg-gray-700": isActive, // ✅ Active state styling
+                    "hover:bg-gray-700": !isActive,
                 }
             )}
             aria-label={`Toggle ${viewName} view`}
         >
             {icon}
-            {viewName === VIEWS.CHATS && isNewMessage && (
-                <span className="absolute right-0 top-0 h-3 w-3 rounded-full bg-primary" aria-hidden="true" />
-            )}
         </button>
-    )
-}
+    );
+};
 
-export default ViewButton
+export default SidebarButton;

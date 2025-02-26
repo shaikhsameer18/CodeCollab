@@ -26,6 +26,16 @@ body {
     height: var(--sb-size);
 }
 
+/* Prevent sidebar from shrinking */
+.sidebar {
+    min-width: 16rem; /* Adjust as needed */
+    transition: all 0.3s ease-in-out;
+}
+
+.sidebar.collapsed {
+    min-width: 4rem; /* Adjust for collapsed state */
+}
+
 ::-webkit-scrollbar-track {
     background: var(--sb-track-color);
     border-radius: 5px;

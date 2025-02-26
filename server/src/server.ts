@@ -7,6 +7,9 @@ import { USER_CONNECTION_STATUS, User } from "./types/user"
 import { Server } from "socket.io"
 import path from "path"
 
+
+import chatbotRoutes from './routes/chatbot';
+
 dotenv.config()
 
 const app = express()
@@ -16,6 +19,10 @@ app.use(express.json())
 app.use(cors())
 
 app.use(express.static(path.join(__dirname, "public"))) // Serve static files
+
+
+
+app.use('/api/chatbot', chatbotRoutes);
 
 const server = http.createServer(app)
 const io = new Server(server, {
@@ -270,3 +277,4 @@ app.get("/", (req: Request, res: Response) => {
 server.listen(PORT, () => {
 	console.log(`Listening on port ${PORT}`)
 })
+
