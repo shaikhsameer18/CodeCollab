@@ -16,11 +16,21 @@ const app = express()
 
 app.use(express.json())
 
-app.use(cors())
+app.use(cors({
+	origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+	credentials: true,
+	methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+	allowedHeaders: ['Content-Type', 'Authorization']
+}))
 
 app.use(express.static(path.join(__dirname, "public"))) // Serve static files
 
-
+// Handle GitHub OAuth callback redirect
+app.get('/api/auth/github/callback', (req, res) => {
+	console.log('Received GitHub callback on main server, redirecting to GitHub server');
+	const code = req.query.code;
+	res.redirect(`http://localhost:3002/api/auth/github/callback?code=${code}`);
+});
 
 app.use('/api/chatbot', chatbotRoutes);
 
@@ -276,5 +286,13 @@ app.get("/", (req: Request, res: Response) => {
 
 server.listen(PORT, () => {
 	console.log(`Listening on port ${PORT}`)
+	console.log(`Frontend URL: ${process.env.FRONTEND_URL}`);
+}).on('error', (err: any) => {
+	if (err.code === 'EADDRINUSE') {
+		console.error(`Port ${PORT} is already in use. Please use a different port.`);
+		process.exit(1);
+	} else {
+		console.error('Server error:', err);
+	}
 })
 
