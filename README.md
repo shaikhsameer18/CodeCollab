@@ -12,7 +12,7 @@
 ## 📸 Screenshots
 
 ### 🔹 Homepage
-![Homepage](https://i.postimg.cc/2yPYZJ8b/ca99c1109d6f490b837de4836762e591.jpg)
+![Homepage](https://i.postimg.cc/52m8t5S1/Screenshot-2025-07-21-203216.png)
 
 ### 🔹 Code Editor
 ![Code Editor](https://i.postimg.cc/FKZhBDG8/a92bfb91daba4869990ceb63bceac04c.jpg)
