@@ -1,34 +1,36 @@
 @import url("tldraw/tldraw.css");
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700&family=Fira+Code:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700&family=Fira+Code:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /* Scrolling is allowed at the document level so the landing page can be a
+     normal multi-section page. The editor route locks its own viewport via
+     the h-screen/overflow-hidden wrapper on EditorPage's root element. */
   html {
     scroll-behavior: smooth;
-    height: 100%;
-    overflow: hidden;
+    overflow-x: hidden;
   }
-  
+
   body {
-    @apply bg-dark text-white font-sans h-screen w-screen overflow-hidden;
-    
+    @apply bg-dark text-white font-sans min-h-screen w-full overflow-x-hidden;
+
     /* Better scrollbar variables */
     --sb-track-color: #11172A;
     --sb-thumb-color: #0EA5E9;
     --sb-thumb-hover: #0284C7;
     --sb-size: 8px;
   }
-  
+
   /* Focus styles for accessibility */
   *:focus-visible {
     @apply outline-none ring-2 ring-primary-400 ring-offset-2 ring-offset-dark;
   }
 
   #root {
-    @apply h-full w-full overflow-hidden;
+    @apply min-h-full w-full;
   }
 }
 

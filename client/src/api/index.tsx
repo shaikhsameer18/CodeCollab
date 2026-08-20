@@ -14,6 +14,18 @@ const API_URL = import.meta.env.VITE_BACKEND_URL;
 console.log("API URL being used:", API_URL); // Debug log to see which URL is being used
 const API_BASE_URL = `${API_URL}/api/chatbot`;
 
+// One id per browser, so the server can keep each visitor's conversation
+// history separate instead of a single history shared by everyone.
+function getChatSessionId(): string {
+    const key = "codecollab_chat_session";
+    let id = localStorage.getItem(key);
+    if (!id) {
+        id = crypto.randomUUID();
+        localStorage.setItem(key, id);
+    }
+    return id;
+}
+
 export const sendMessageToChatbot = async (message: string, onChunk: (chunk: string) => void): Promise<void> => {
     try {
         console.log("Sending message to:", `${API_BASE_URL}/ask`);
@@ -22,6 +34,7 @@ export const sendMessageToChatbot = async (message: string, onChunk: (chunk: str
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "X-Chat-Session": getChatSessionId(),
             },
             body: JSON.stringify({ message }),
         });

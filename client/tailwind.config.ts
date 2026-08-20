@@ -49,17 +49,29 @@ export default {
                     dark: "rgba(17, 23, 42, 0.8)",
                     light: "rgba(255, 255, 255, 0.8)",
                 },
+                // Warm, human accent reserved for landing-page presence cues
+                // (cursor tags, avatars) — everything else in the palette is
+                // "the system"; this is "the people using it".
+                signal: {
+                    DEFAULT: "#FB923C",
+                    soft: "#FDBA74",
+                    dim: "#C2410C",
+                },
             },
             fontFamily: {
                 sans: ["Poppins", "Inter", "system-ui", "sans-serif"],
                 mono: ["Fira Code", "JetBrains Mono", "monospace"],
                 display: ["Montserrat", "sans-serif"],
+                // Editorial serif reserved for landing-page headlines only —
+                // deliberate contrast with the mono/sans product UI.
+                editorial: ["Fraunces", "Georgia", "serif"],
             },
             animation: {
                 "up-down": "up-down 2s ease-in-out infinite alternate",
                 "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
                 "shimmer": "shimmer 2s linear infinite",
                 "float": "float 6s ease-in-out infinite",
+                "caret-blink": "caret-blink 1s step-end infinite",
             },
             keyframes: {
                 shimmer: {
@@ -69,6 +81,10 @@ export default {
                 float: {
                     "0%, 100%": { transform: "translateY(0)" },
                     "50%": { transform: "translateY(-10px)" },
+                },
+                "caret-blink": {
+                    "0%, 45%": { opacity: "1" },
+                    "50%, 100%": { opacity: "0" },
                 },
             },
             boxShadow: {

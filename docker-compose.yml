@@ -1,0 +1,26 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      NODE_ENV: production
+      FRONTEND_URL: http://localhost:8080
+      SESSION_SECRET: ${SESSION_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      DEEPINFRA_API_KEY: ${DEEPINFRA_API_KEY}
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_BACKEND_URL: http://localhost:3000
+        VITE_GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+    restart: unless-stopped

@@ -21,6 +21,7 @@ import {
     useCallback,
     useContext,
     useEffect,
+    useRef,
     useState,
 } from "react"
 import { toast } from "react-hot-toast"
@@ -74,13 +75,18 @@ function FileContextProvider({ children }: { children: ReactNode }) {
         openFiles[0],
     )
     
-    // Save fileStructure to localStorage whenever it changes
+    // Save fileStructure to localStorage + broadcast it over the socket
+    // whenever it changes. Debounced: without this, every keystroke in the
+    // editor (which rewrites a file's `content` field) triggered a full-tree
+    // localStorage write and a full-tree socket emit on its own.
+    const syncTimerRef = useRef<ReturnType<typeof setTimeout>>()
     useEffect(() => {
-        if (currentUser?.roomId) {
-            // Save to localStorage
+        if (!currentUser?.roomId) return
+
+        if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+        syncTimerRef.current = setTimeout(() => {
             setItem(roomFileKey, JSON.stringify(fileStructure))
-            
-            // Only broadcast file structure changes on deliberate actions, not on initial load
+
             if (socket.connected) {
                 socket.emit(SocketEvent.SYNC_FILE_STRUCTURE, {
                     fileStructure,
@@ -88,6 +94,10 @@ function FileContextProvider({ children }: { children: ReactNode }) {
                     activeFile
                 });
             }
+        }, 400)
+
+        return () => {
+            if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
         }
     }, [fileStructure, currentUser?.roomId, setItem, roomFileKey, socket, openFiles, activeFile])
 

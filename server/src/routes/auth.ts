@@ -1,13 +1,23 @@
-import express, { Request, Response } from 'express';
+import { Request, Response, Router } from 'express';
 import axios from 'axios';
-import { Router } from 'express';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as os from 'os';
+import * as crypto from 'crypto';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const router = Router();
+
+/**
+ * Runs `git` with an argument array (never a shell string), so commit
+ * messages, usernames, and branch names can never break out into shell
+ * commands regardless of what characters they contain.
+ */
+async function git(cwd: string, args: string[]): Promise<{ stdout: string; stderr: string }> {
+    return execFileAsync('git', args, { cwd });
+}
 
 // GitHub OAuth login route
 router.get('/github', (req: Request, res: Response) => {
@@ -146,11 +156,9 @@ router.post('/github/commit-push', async (req: Request, res: Response) => {
         console.log(`Files to commit: ${files.join(', ')}`);
 
         // Create a truly temporary directory outside of the project
-        const os = require('os');
-        const crypto = require('crypto');
         const randomId = crypto.randomBytes(8).toString('hex');
         const tempDir = path.join(os.tmpdir(), `codecollab_commit_${randomId}`);
-        
+
         console.log(`Using temporary directory for commit: ${tempDir}`);
         
         // Clear existing temp directory if it exists
@@ -247,43 +255,53 @@ router.post('/github/commit-push', async (req: Request, res: Response) => {
             }
             
             console.log('Setting up git repository...');
-            
-            // Initialize git repository
-            await execAsync(`cd "${tempDir}" && git init`);
-            await execAsync(`cd "${tempDir}" && git config user.name "${userName}"`);
-            await execAsync(`cd "${tempDir}" && git config user.email "${userEmail}"`);
-            
+
+            // Initialize git repository (argument arrays only — never a shell
+            // string — so nothing in userName/userEmail/message/paths can be
+            // interpreted as a shell command)
+            await git(tempDir, ['init']);
+            await git(tempDir, ['config', 'user.name', userName]);
+            await git(tempDir, ['config', 'user.email', userEmail]);
+
             // Add remote with credentials
             console.log('Adding remote origin...');
-            await execAsync(`cd "${tempDir}" && git remote add origin "${authRepoUrl}"`);
-            
+            await git(tempDir, ['remote', 'add', 'origin', authRepoUrl]);
+
             // Write files to the cloned repository
             let addedCount = 0;
             const validFiles: string[] = [];
-            
+
             // Debug the files we're about to process
             console.log(`Files received for processing: ${JSON.stringify(files)}`);
             console.log(`File contents keys: ${Object.keys(fileContents || {})}`);
-            
+
             if (fileContents && typeof fileContents === 'object') {
                 // First, make sure we process ALL files that were selected
                 for (const filePath of files) {
                     try {
+                        // Reject absolute paths and `..` segments so a crafted
+                        // file path can't write outside tempDir
+                        const normalized = path.normalize(filePath).replace(/^([/\\])+/, '');
+                        if (normalized.split(/[/\\]/).includes('..') || path.isAbsolute(filePath)) {
+                            console.warn(`Rejected unsafe file path: ${filePath}`);
+                            continue;
+                        }
+
                         const content = fileContents[filePath];
                         if (!content) {
                             console.warn(`No content provided for file: ${filePath}, using empty string`);
                             fileContents[filePath] = ''; // Provide empty content rather than skipping
                         }
-                        
+
                         // Create full path with directories
-                        const fullPath = path.join(tempDir, filePath);
-                        
+                        const fullPath = path.join(tempDir, normalized);
+
                         // Create directories if they don't exist
                         const dirPath = path.dirname(fullPath);
                         if (!fs.existsSync(dirPath)) {
                             fs.mkdirSync(dirPath, { recursive: true });
                         }
-                        
+
                         // Write file content (even if empty)
                         fs.writeFileSync(fullPath, fileContents[filePath] || '');
                         validFiles.push(filePath);
@@ -296,10 +314,10 @@ router.post('/github/commit-push', async (req: Request, res: Response) => {
             } else {
                 console.error('No file contents provided or invalid format');
             }
-            
+
             // Log the files that were successfully added
             console.log(`Successfully added ${addedCount} files: ${validFiles.join(', ')}`);
-            
+
             // If no files were added, create a minimal README to commit
             if (addedCount === 0) {
                 const readmePath = 'README.md';
@@ -310,55 +328,67 @@ router.post('/github/commit-push', async (req: Request, res: Response) => {
                 validFiles.push(readmePath);
                 addedCount++;
             }
-            
+
             // Add all files to git
             console.log('Adding files to git...');
-            await execAsync(`cd "${tempDir}" && git add --all`);
-            
-            // Commit changes
+            await git(tempDir, ['add', '--all']);
+
+            // Commit changes (message passed as a single argv entry, never
+            // interpolated into a shell string)
             console.log('Committing changes...');
-            await execAsync(`cd "${tempDir}" && git commit -m "${message}"`);
-            
+            await git(tempDir, ['commit', '-m', message]);
+
             // Try to fetch first to see if repo exists
             console.log('Checking repository status...');
-            
+
             try {
                 // Try to fetch and see if we succeed
-                const { stdout: fetchOutput } = await execAsync(`cd "${tempDir}" && git fetch origin`);
+                const { stdout: fetchOutput } = await git(tempDir, ['fetch', 'origin']);
                 console.log(`Fetch output: ${fetchOutput || 'No output'}`);
-                
+
                 // If we get here, fetch was successful, repo exists
                 // Try to create a branch based on main/master
                 try {
                     console.log('Trying to create branch from main/master...');
-                    await execAsync(`cd "${tempDir}" && git checkout -b temp-branch origin/main || git checkout -b temp-branch origin/master`);
-                    
+                    try {
+                        await git(tempDir, ['checkout', '-b', 'temp-branch', 'origin/main']);
+                    } catch {
+                        await git(tempDir, ['checkout', '-b', 'temp-branch', 'origin/master']);
+                    }
+
                     // If this succeeded, now merge our changes
                     console.log('Merging changes...');
-                    await execAsync(`cd "${tempDir}" && git merge --allow-unrelated-histories -X theirs --no-edit HEAD@{1}`);
+                    await git(tempDir, [
+                        'merge',
+                        '--allow-unrelated-histories',
+                        '-X',
+                        'theirs',
+                        '--no-edit',
+                        'HEAD@{1}',
+                    ]);
                 } catch (branchErr) {
                     console.log('Could not create branch from remote, using our commit as is');
-                    await execAsync(`cd "${tempDir}" && git branch -m temp-branch`);
+                    await git(tempDir, ['branch', '-m', 'temp-branch']);
                 }
             } catch (fetchErr) {
                 console.log('Fetch failed, assuming new repository');
-                await execAsync(`cd "${tempDir}" && git branch -m temp-branch`);
+                await git(tempDir, ['branch', '-m', 'temp-branch']);
             }
-            
+
             // Push changes, forcing if necessary
             console.log('Pushing changes to remote...');
             try {
-                await execAsync(`cd "${tempDir}" && git push -f origin temp-branch:main`);
+                await git(tempDir, ['push', '-f', 'origin', 'temp-branch:main']);
                 console.log('Successfully pushed to main branch');
             } catch (mainPushErr) {
                 console.log('Failed to push to main, trying master...');
                 try {
-                    await execAsync(`cd "${tempDir}" && git push -f origin temp-branch:master`);
+                    await git(tempDir, ['push', '-f', 'origin', 'temp-branch:master']);
                     console.log('Successfully pushed to master branch');
                 } catch (masterPushErr) {
                     // Last resort: try to push to the temp branch directly
                     console.log('Failed to push to master, trying direct branch push...');
-                    await execAsync(`cd "${tempDir}" && git push -f origin temp-branch`);
+                    await git(tempDir, ['push', '-f', 'origin', 'temp-branch']);
                     console.log('Pushed to temp-branch');
                 }
             }
@@ -467,14 +497,14 @@ router.post('/github/create-and-push', async (req: Request, res: Response) => {
         // Get repository details
         const repo = repoResponse.data;
         console.log(`Repository created successfully: ${repo.html_url}`);
-        
+
+        // Declared here (not inside the try below) so the catch block can
+        // clean up the *actual* directory used, instead of a fresh random
+        // path that never existed
+        const randomId = crypto.randomBytes(8).toString('hex');
+        const tempDir = path.join(os.tmpdir(), `codecollab_${randomId}`);
+
         try {
-            // Create a truly temporary directory outside of the project
-            const os = require('os');
-            const crypto = require('crypto');
-            const randomId = crypto.randomBytes(8).toString('hex');
-            const tempDir = path.join(os.tmpdir(), `codecollab_${randomId}`);
-            
             console.log(`Using temporary directory: ${tempDir}`);
             
             // Clear existing temp directory if it exists
@@ -511,21 +541,29 @@ router.post('/github/create-and-push', async (req: Request, res: Response) => {
                 // First, make sure we process ALL files that were selected
                 for (const filePath of files) {
                     try {
+                        // Reject absolute paths and `..` segments so a crafted
+                        // file path can't write outside tempDir
+                        const normalized = path.normalize(filePath).replace(/^([/\\])+/, '');
+                        if (normalized.split(/[/\\]/).includes('..') || path.isAbsolute(filePath)) {
+                            console.warn(`Rejected unsafe file path: ${filePath}`);
+                            continue;
+                        }
+
                         const content = fileContents[filePath];
                         if (!content) {
                             console.warn(`No content provided for file: ${filePath}, using empty string`);
                             fileContents[filePath] = ''; // Provide empty content rather than skipping
                         }
-                        
+
                         // Create full path with directories
-                        const fullPath = path.join(tempDir, filePath);
-                        
+                        const fullPath = path.join(tempDir, normalized);
+
                         // Create directories if they don't exist
                         const dirPath = path.dirname(fullPath);
                         if (!fs.existsSync(dirPath)) {
                             fs.mkdirSync(dirPath, { recursive: true });
                         }
-                        
+
                         // Write file content (even if empty)
                         fs.writeFileSync(fullPath, fileContents[filePath] || '');
                         validFiles.push(filePath);
@@ -538,10 +576,10 @@ router.post('/github/create-and-push', async (req: Request, res: Response) => {
             } else {
                 console.error('No file contents provided or invalid format');
             }
-            
+
             // Log the files that were successfully added
             console.log(`Successfully added ${addedCount} files: ${validFiles.join(', ')}`);
-            
+
             // If no files were added, create a minimal README to commit
             if (addedCount === 0) {
                 const readmePath = 'README.md';
@@ -552,26 +590,26 @@ router.post('/github/create-and-push', async (req: Request, res: Response) => {
                 validFiles.push(readmePath);
                 addedCount++;
             }
-            
+
             // Add all files to git
             console.log('Adding files to git...');
-            await execAsync(`cd "${tempDir}" && git add --all`);
-            
-            // Commit changes
+            await git(tempDir, ['add', '--all']);
+
+            // Commit changes (message passed as a single argv entry)
             console.log('Committing changes...');
-            await execAsync(`cd "${tempDir}" && git commit -m "${message}"`);
-            
+            await git(tempDir, ['commit', '-m', message]);
+
             // Add remote with authentication token
             console.log('Setting up remote...');
-            await execAsync(`cd "${tempDir}" && git remote add origin "${authRepoUrl}"`);
-            
+            await git(tempDir, ['remote', 'add', 'origin', authRepoUrl]);
+
             // Push to the repository, try main first, then master
             console.log('Pushing to repository...');
             try {
-                await execAsync(`cd "${tempDir}" && git push -u origin main`);
+                await git(tempDir, ['push', '-u', 'origin', 'main']);
             } catch (mainPushError) {
                 console.log('Failed to push to main branch, trying master branch...');
-                await execAsync(`cd "${tempDir}" && git push -u origin master`);
+                await git(tempDir, ['push', '-u', 'origin', 'master']);
             }
             
             console.log('Push successful!');
@@ -586,14 +624,9 @@ router.post('/github/create-and-push', async (req: Request, res: Response) => {
             });
         } catch (gitError: unknown) {
             console.error('Git operation error:', gitError);
-            
-            // Clean up temp directory if it exists
+
+            // Clean up the temp directory that was actually used
             try {
-                const os = require('os');
-                const crypto = require('crypto');
-                const randomId = crypto.randomBytes(8).toString('hex');
-                const tempDir = path.join(os.tmpdir(), `codecollab_${randomId}`);
-                
                 if (fs.existsSync(tempDir)) {
                     fs.rmSync(tempDir, { recursive: true, force: true });
                 }

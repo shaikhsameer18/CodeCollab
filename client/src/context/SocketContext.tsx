@@ -42,7 +42,9 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
     const socket: Socket = useMemo(() => {
         console.log("Connecting to socket at:", BACKEND_URL); // Log the backend URL
         return io(BACKEND_URL, {
-            reconnectionAttempts: 2,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
         });
     }, []);
 
@@ -55,6 +57,27 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         },
         [setStatus]
     );
+
+    const handleDisconnect = useCallback((reason: Socket.DisconnectReason) => {
+        // A server-initiated disconnect (or explicit client disconnect) won't
+        // auto-reconnect on its own — surface that instead of going silent
+        if (reason === "io server disconnect" || reason === "io client disconnect") {
+            return;
+        }
+        toast.dismiss();
+        toast.loading("Connection lost. Reconnecting...");
+    }, []);
+
+    const handleReconnect = useCallback(() => {
+        toast.dismiss();
+        toast.success("Reconnected");
+    }, []);
+
+    const handleReconnectFailed = useCallback(() => {
+        toast.dismiss();
+        setStatus(USER_STATUS.CONNECTION_FAILED);
+        toast.error("Couldn't reconnect to the server. Please refresh the page.");
+    }, [setStatus]);
 
     const handleUsernameExist = useCallback(() => {
         toast.dismiss();
@@ -103,6 +126,9 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
     useEffect(() => {
         socket.on("connect_error", handleError);
         socket.on("connect_failed", handleError);
+        socket.on("disconnect", handleDisconnect);
+        socket.io.on("reconnect", handleReconnect);
+        socket.io.on("reconnect_failed", handleReconnectFailed);
         socket.on(SocketEvent.USERNAME_EXISTS, handleUsernameExist);
         socket.on(SocketEvent.JOIN_ACCEPTED, handleJoiningAccept);
         socket.on(SocketEvent.USER_DISCONNECTED, handleUserLeft);
@@ -112,6 +138,9 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         return () => {
             socket.off("connect_error");
             socket.off("connect_failed");
+            socket.off("disconnect", handleDisconnect);
+            socket.io.off("reconnect", handleReconnect);
+            socket.io.off("reconnect_failed", handleReconnectFailed);
             socket.off(SocketEvent.USERNAME_EXISTS);
             socket.off(SocketEvent.JOIN_ACCEPTED);
             socket.off(SocketEvent.USER_DISCONNECTED);
@@ -119,9 +148,12 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
             socket.off(SocketEvent.SYNC_DRAWING);
         };
     }, [
+        handleDisconnect,
         handleDrawingSync,
         handleError,
         handleJoiningAccept,
+        handleReconnect,
+        handleReconnectFailed,
         handleRequestDrawing,
         handleUserLeft,
         handleUsernameExist,

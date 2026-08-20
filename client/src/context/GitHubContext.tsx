@@ -42,13 +42,13 @@ export const GitHubProvider: React.FC<GitHubProviderProps> = ({ children }) => {
         if (roomId) {
             sessionStorage.setItem('returnRoomId', roomId);
         }
-        window.location.href = `${import.meta.env.VITE_GITHUB_URL}/api/auth/github`;
+        window.location.href = `${import.meta.env.VITE_BACKEND_URL}/api/auth/github`;
     };
 
     const logout = async () => {
         try {
             await axios.post(
-                `${import.meta.env.VITE_GITHUB_URL}/api/auth/github/logout`,
+                `${import.meta.env.VITE_BACKEND_URL}/api/auth/github/logout`,
                 {},
                 { withCredentials: true }
             );
@@ -83,7 +83,7 @@ export const GitHubProvider: React.FC<GitHubProviderProps> = ({ children }) => {
             }
             
             const response = await axios.post(
-                `${import.meta.env.VITE_GITHUB_URL}/api/auth/github/commit-push`,
+                `${import.meta.env.VITE_BACKEND_URL}/api/auth/github/commit-push`,
                 { message, repoUrl, files, fileContents },
                 { withCredentials: true }
             );
@@ -100,7 +100,7 @@ export const GitHubProvider: React.FC<GitHubProviderProps> = ({ children }) => {
     const refreshUser = async () => {
         try {
             const response = await axios.get(
-                `${import.meta.env.VITE_GITHUB_URL}/api/auth/github/profile`,
+                `${import.meta.env.VITE_BACKEND_URL}/api/auth/github/profile`,
                 { withCredentials: true }
             );
             setUser(response.data);
@@ -117,7 +117,7 @@ export const GitHubProvider: React.FC<GitHubProviderProps> = ({ children }) => {
     const createRepo = async (params: CreateRepoParams): Promise<GitHubRepo> => {
         try {
             const response = await axios.post(
-                `${import.meta.env.VITE_GITHUB_URL}/api/auth/github/create-repo`,
+                `${import.meta.env.VITE_BACKEND_URL}/api/auth/github/create-repo`,
                 params,
                 { withCredentials: true }
             );
@@ -154,7 +154,7 @@ export const GitHubProvider: React.FC<GitHubProviderProps> = ({ children }) => {
             
             // Use the new single endpoint to create a repo and push code
             const response = await axios.post(
-                `${import.meta.env.VITE_GITHUB_URL}/api/auth/github/create-and-push`,
+                `${import.meta.env.VITE_BACKEND_URL}/api/auth/github/create-and-push`,
                 { 
                     repository: params,
                     message,
@@ -179,7 +179,7 @@ export const GitHubProvider: React.FC<GitHubProviderProps> = ({ children }) => {
     const getChangedFiles = async (): Promise<Array<{path: string, status: string}>> => {
         try {
             const response = await axios.get(
-                `${import.meta.env.VITE_GITHUB_URL}/api/auth/github/changed-files`,
+                `${import.meta.env.VITE_BACKEND_URL}/api/auth/github/changed-files`,
                 { withCredentials: true }
             );
             return response.data.files || [];

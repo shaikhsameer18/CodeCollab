@@ -176,9 +176,8 @@ export default function FormComponent() {
                 </form>
                 
                 <div className="mt-6 pt-4 border-t border-darkTertiary/30 text-center">
-                    <p className="text-xs text-gray-400">
-                        By joining, you agree to our 
-                        <a href="#" className="text-teal-500 hover:text-teal-400 ml-1">Terms of Service</a>
+                    <p className="text-xs text-gray-500">
+                        No account needed — you're in the room as soon as you submit.
                     </p>
                 </div>
             </div>

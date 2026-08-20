@@ -92,8 +92,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
             setIsRunning(false)
             toast.dismiss()
         } catch (error: any) {
-            console.error(error.response.data)
-            console.error(error.response.data.error)
+            console.error(error?.response?.data ?? error)
             setIsRunning(false)
             toast.dismiss()
             toast.error("Failed to run the code")

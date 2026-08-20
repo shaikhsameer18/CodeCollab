@@ -1,5 +1,6 @@
 import SidebarButton from "@/components/sidebar/sidebar-views/SidebarButton";
 import ChatbotView from "@/components/sidebar/sidebar-views/ChatbotView";
+import GitHubSidebarButton from "@/components/github/GitHubSidebarButton";
 import { useViews } from "@/context/ViewContext";
 import { useAppContext } from "@/context/AppContext";
 import { useSocket } from "@/context/SocketContext";
@@ -14,7 +15,11 @@ import { FiUsers, FiSettings, FiCode, FiTerminal, FiFolder, FiMessageSquare } fr
 import cn from "classnames";
 import { motion, AnimatePresence } from "framer-motion";
 
-export default function Sidebar() {
+interface SidebarProps {
+    onOpenGitHub: () => void;
+}
+
+export default function Sidebar({ onOpenGitHub }: SidebarProps) {
     const { activeView, setActiveView, viewComponents, isSidebarOpen } = useViews();
     const { activityState, setActivityState } = useAppContext();
     const { socket } = useSocket();
@@ -79,6 +84,13 @@ export default function Sidebar() {
                             onClick={() => setActiveView(view)}
                         />
                     ))}
+                </div>
+
+                {/* GitHub connect/commit entry point - lives here, not as a
+                    separate app-wide sidebar, so the editor only ever shows
+                    one icon rail */}
+                <div className="md:mt-auto md:mb-4">
+                    <GitHubSidebarButton onClick={onOpenGitHub} />
                 </div>
 
                 {/* Mode Toggle Button - Fixed at bottom for desktop */}

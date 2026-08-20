@@ -1,155 +1,100 @@
+<div align="center">
+
+<img src="client/public/favicon.png" alt="CodeCollab" width="72" />
+
 # CodeCollab
 
-<div align="center">
-  <img src="client/public/favicon.png" alt="CodeCollab Logo" width="100" />
-  <h3>Real-time collaborative coding platform with integrated tools</h3>
+**A browser-based room where a team codes, runs, sketches, and ships together — live.**
+
+[![License: MIT](https://img.shields.io/badge/license-MIT-14B8A6.svg)](LICENSE)
+![TypeScript](https://img.shields.io/badge/TypeScript-both%20sides-3178C6)
+![Socket.io](https://img.shields.io/badge/Socket.io-real--time-black)
+
+[Deployment guide](DEPLOYMENT.md) · [Report a bug](https://github.com/shaikhsameer18/CodeCollabFinal/issues)
+
 </div>
 
-## 🚀 Overview
-
-**CodeCollab** is a powerful collaborative coding platform designed for real-time teamwork. It combines a feature-rich code editor with integrated whiteboarding, chat functionality, and GitHub integration to create a comprehensive environment for developers, educators, and teams to work together seamlessly.
-
-## 📸 Screenshots
-
-### 🔹 Homepage
-![Homepage](https://i.postimg.cc/52m8t5S1/Screenshot-2025-07-21-203216.png)
-
-### 🔹 Code Editor
-![Code Editor](https://i.postimg.cc/FKZhBDG8/a92bfb91daba4869990ceb63bceac04c.jpg)
-
-### 🔹 Whiteboard
-![Whiteboard](https://i.postimg.cc/vZPs7cBw/75aa970fe3d2402393da7947bba1e3cb.jpg)
-
-### 🔹 Github
-![Github](https://i.postimg.cc/pr8WqxSY/43e56b4d19474d14a76061a5e27b4b61.jpg)
 ---
-![Github](https://i.postimg.cc/pdXdxw9R/b29899bead4f4177a0d1a37e515eea1f.jpg)
 
+## About
 
-## ✨ Key Features
+CodeCollab turns a single room ID into a shared workspace: a multi-file code editor with live multi-cursor editing, an AI assistant, a whiteboard, in-room chat, one-click GitHub commits, and a real code runner — all in one browser tab, with nothing to install.
 
-- **Real-time Collaborative Editing**
-  - Multiple users can edit code simultaneously with instant synchronization
-  - User presence indicators and cursor tracking
-  - Real-time feedback on who's typing and where
+It's aimed at the moments where screen-sharing isn't quite enough: pair programming, technical interviews, teaching a class to debug together, or a hackathon team that's never met in person. Open a room, send the link, everyone's cursor shows up.
 
-- **GitHub Integration**
-  - Connect directly to GitHub repositories
-  - Clone, commit, and push changes without leaving the platform
-  - Manage repository access and permissions
+## Features
 
-- **Interactive Whiteboard**
-  - Sketch diagrams, flowcharts, and visual concepts
-  - Collaborate on design ideas in real-time
-  - Integrate visual planning with code development
+- **Real-time collaborative editing** — every keystroke, cursor position, and file-tree change syncs over WebSockets (Socket.io) to everyone in the room.
+- **GitHub integration** — connect an account, pick a repo, and commit + push the room's files directly, without a local git clone.
+- **AI pair programmer** — ask coding questions in the sidebar; answers stream in from a hosted code model, scoped to your own session.
+- **Interactive whiteboard** — flip the room from code to a shared [tldraw](https://tldraw.dev) canvas for diagrams, then flip back without losing anything.
+- **Run real code** — execute the open file against an actual language runtime (via [Piston](https://github.com/engineer-man/piston)) and see stdout/stderr inline.
+- **Room-based access** — a room is just a shareable link; no accounts, no invites to manage.
 
-- **Integrated Chat System**
-  - Text-based communication alongside code
-  - Share ideas and discuss implementation details
-  - Keep all project communication in one place
+## Tech stack
 
-- **Multi-language Support**
-  - Syntax highlighting for numerous programming languages
-  - Code execution capabilities
-  - Language-specific features and tools
+| | |
+|---|---|
+| **Client** | React 18, TypeScript, Vite, Tailwind CSS, CodeMirror 6, tldraw, Framer Motion, Socket.io-client |
+| **Server** | Node.js, Express, Socket.io, express-session, express-rate-limit |
+| **Integrations** | GitHub OAuth + REST API, DeepInfra (AI chat), Piston (code execution) |
 
-- **Room-based Collaboration**
-  - Create dedicated spaces for different projects or teams
-  - Invite collaborators with simple sharing links
-  - Manage permissions and access control
+## Architecture
 
-## 🛠️ Tech Stack
+```text
+client (Vite/React, static)  ──HTTPS──▶  server (Express + Socket.io, one process)
+      │                                        │
+      ├─ WebSocket: file sync, cursors,        ├─ /api/auth/github/*  (OAuth, commit & push)
+      │  presence, chat, drawing               ├─ /api/chatbot/ask    (AI, SSE stream)
+      │                                        └─ Socket.io room state (in-memory)
+      └─ Piston API (browser → third party, code execution)
+```
 
-### Frontend
-- **React** with TypeScript
-- **Vite** for fast development and building
-- **TailwindCSS** for styling
-- **Socket.io** for real-time communication
-- **CodeMirror** for the code editor
-- **TLDraw** for whiteboard functionality
-- **React Router** for navigation
+One server process, one port. See [`DEPLOYMENT.md`](DEPLOYMENT.md#architecture-notes) for why that's worth calling out — it wasn't always true.
 
-### Backend
-- **Node.js** with Express
-- **Socket.io** for WebSocket connections
-- **TypeScript** for type safety
-- **OpenAI API** integration for AI assistance
-
-## 📋 Prerequisites
-
-- Node.js (v16 or higher)
-- npm or yarn
-- Git
-
-## 🔧 Installation & Setup
-
-### Clone the Repository
+## Getting started
 
 ```bash
 git clone https://github.com/shaikhsameer18/CodeCollabFinal.git
 cd CodeCollabFinal
+
+cd server && cp .env.example .env   # fill in the values, see below
+npm install && npm run dev          # http://localhost:3000
+
+cd ../client && cp .env.example .env
+npm install && npm run dev          # http://localhost:5173
 ```
 
-### Server Setup
+You'll need a [GitHub OAuth App](https://github.com/settings/developers) for the GitHub features and a [DeepInfra](https://deepinfra.com) API key for the AI assistant — both are optional for local editing/whiteboard/run-code use. Full variable reference in [`server/.env.example`](server/.env.example) and [`client/.env.example`](client/.env.example).
+
+**Ready to put it online?** → [`DEPLOYMENT.md`](DEPLOYMENT.md) covers Render + Vercel (recommended, free) and a Docker path for self-hosting anywhere.
+
+## Usage
+
+1. **Create or join a room** — enter a username on the homepage, generate a room ID (or paste one a teammate sent you), and go.
+2. **Share the link** — the URL in your address bar *is* the invite.
+3. **Code, run, sketch, push** — edit files together, run the active file, switch to the whiteboard for a diagram, and push the result to GitHub when you're done.
+
+## Security
+
+If you're standing up your own instance from this repo, read [`DEPLOYMENT.md`](DEPLOYMENT.md#0-before-you-deploy-anywhere-rotate-your-secrets) before your first deploy — it covers rotating credentials and keeping `.env` files out of git.
+
+## Contributing
+
+Pull requests are welcome.
 
 ```bash
-cd server
-npm install
-npm run dev
+git checkout -b feature/your-feature
+git commit -m "feat: describe your change"
+git push origin feature/your-feature
 ```
 
-### Client Setup
+Then open a PR against `main`.
 
-```bash
-cd client
-npm install
-npm run dev
-```
+## License
 
-## 📖 Usage Guide
+[MIT](LICENSE)
 
-### Creating a Room
-1. Navigate to the homepage
-2. Enter a username
-3. Click "Create New Room" or join an existing room with a code
+## Acknowledgements
 
-### Inviting Collaborators
-1. Share the room URL displayed in the address bar
-2. Collaborators can join using the room code on the homepage
-
-### Using the Code Editor
-- Edit code in real-time with collaborators
-- See everyone's cursors and edits as they happen
-- Use the file explorer to navigate between files
-
-### Using the Whiteboard
-- Switch to whiteboard mode using the sidebar toggle
-- Draw diagrams, flowcharts, or any visual content
-- Collaborate in real-time with other room participants
-
-### GitHub Integration
-1. Connect your GitHub account using the GitHub button in the sidebar
-2. Select repositories to work with
-3. Commit and push changes directly from CodeCollab
-
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📜 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgements
-
-- [React](https://reactjs.org/)
-- [Socket.io](https://socket.io/)
-- [CodeMirror](https://codemirror.net/)
-- [TLDraw](https://www.tldraw.com/)
-- [OpenAI](https://openai.com/)
+[React](https://reactjs.org) · [Socket.io](https://socket.io) · [CodeMirror](https://codemirror.net) · [tldraw](https://tldraw.dev) · [Piston](https://github.com/engineer-man/piston) · [DeepInfra](https://deepinfra.com)

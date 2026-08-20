@@ -1,9 +1,11 @@
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useLocation, useNavigate, useParams } from "react-router-dom"
 import SplitterComponent from "@/components/SplitterComponent"
 import ConnectionStatusPage from "@/components/connection/ConnectionStatusPage"
 import Sidebar from "@/components/sidebar/Sidebar"
 import WorkSpace from "@/components/workspace"
+import GitHubModal from "@/components/github/GitHubModal"
+import GitHubCommitModal from "@/components/github/GitHubCommitModal"
 import { useAppContext } from "@/context/AppContext"
 import { useSocket } from "@/context/SocketContext"
 import useFullScreen from "@/hooks/useFullScreen"
@@ -22,6 +24,8 @@ export default function EditorPage() {
     const { status, setCurrentUser, currentUser } = useAppContext()
     const { socket } = useSocket()
     const location = useLocation()
+    const [isGitHubModalOpen, setIsGitHubModalOpen] = useState(false)
+    const [isCommitModalOpen, setIsCommitModalOpen] = useState(false)
 
     useEffect(() => {
         if (currentUser.username.length > 0) return
@@ -75,9 +79,22 @@ export default function EditorPage() {
             className="h-screen w-screen overflow-hidden bg-dark"
         >
             <SplitterComponent>
-                <Sidebar />
+                <Sidebar onOpenGitHub={() => setIsGitHubModalOpen(true)} />
                 <WorkSpace />
             </SplitterComponent>
+
+            <GitHubModal
+                isOpen={isGitHubModalOpen}
+                onClose={() => setIsGitHubModalOpen(false)}
+                onCommit={() => {
+                    setIsGitHubModalOpen(false)
+                    setIsCommitModalOpen(true)
+                }}
+            />
+            <GitHubCommitModal
+                isOpen={isCommitModalOpen}
+                onClose={() => setIsCommitModalOpen(false)}
+            />
         </motion.div>
     )
 }

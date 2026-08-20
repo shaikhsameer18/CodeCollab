@@ -15,24 +15,59 @@ interface ChatCompletionMessage {
     content: string;
 }
 
-let conversationHistory: ChatCompletionMessage[] = [
-    { role: "system", content: "You are a helpful AI coding assistant." }
-];
+const SYSTEM_PROMPT: ChatCompletionMessage = {
+    role: 'system',
+    content: 'You are a helpful AI coding assistant.',
+};
+const MAX_HISTORY = 10;
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes of inactivity
+
+// Conversation history is kept per client session (never shared across
+// users) and swept periodically so idle sessions don't leak memory.
+interface SessionEntry {
+    history: ChatCompletionMessage[];
+    lastActive: number;
+}
+const sessions = new Map<string, SessionEntry>();
+
+setInterval(() => {
+    const now = Date.now();
+    for (const [id, entry] of sessions) {
+        if (now - entry.lastActive > SESSION_TTL_MS) sessions.delete(id);
+    }
+}, 5 * 60 * 1000).unref();
+
+function getSession(sessionId: string): SessionEntry {
+    let entry = sessions.get(sessionId);
+    if (!entry) {
+        entry = { history: [SYSTEM_PROMPT], lastActive: Date.now() };
+        sessions.set(sessionId, entry);
+    }
+    return entry;
+}
 
 router.post('/ask', async (req, res) => {
     const { message } = req.body;
+    const sessionId = req.header('X-Chat-Session');
+
     if (!message) {
         return res.status(400).json({ error: 'Message is required' });
     }
+    if (!sessionId) {
+        return res.status(400).json({ error: 'Missing X-Chat-Session header' });
+    }
 
-    console.log("🟢 Received message from user:", message);
+    console.log(`Chat message from session ${sessionId.slice(0, 8)}...`);
+
+    const session = getSession(sessionId);
+    session.lastActive = Date.now();
 
     try {
-        conversationHistory.push({ role: "user", content: message });
+        session.history.push({ role: 'user', content: message });
 
         const completion = await openai.chat.completions.create({
-            messages: conversationHistory,
-            model: "Qwen/Qwen2.5-Coder-32B-Instruct",
+            messages: session.history,
+            model: 'Qwen/Qwen2.5-Coder-32B-Instruct',
             max_tokens: 1000,
             temperature: 0.7,
             stream: true,
@@ -42,7 +77,7 @@ router.post('/ask', async (req, res) => {
         res.setHeader('Cache-Control', 'no-cache');
         res.setHeader('Connection', 'keep-alive');
 
-        let aiResponse = "";
+        let aiResponse = '';
 
         for await (const chunk of completion) {
             if (chunk.choices && chunk.choices.length > 0) {
@@ -55,15 +90,15 @@ router.post('/ask', async (req, res) => {
         }
 
         res.end();
-        conversationHistory.push({ role: "assistant", content: aiResponse });
+        session.history.push({ role: 'assistant', content: aiResponse });
 
-        if (conversationHistory.length > 10) {
-            conversationHistory = conversationHistory.slice(-10);
+        // Keep the system prompt plus the most recent turns
+        if (session.history.length > MAX_HISTORY + 1) {
+            session.history = [SYSTEM_PROMPT, ...session.history.slice(-MAX_HISTORY)];
         }
-
     } catch (error: unknown) {
-        console.error("❌ DeepInfra API Error:", error);
-        res.status(500).json({ error: "AI service unavailable", details: error instanceof Error ? error.message : "Unknown error" });
+        console.error('DeepInfra API Error:', error);
+        res.status(500).json({ error: 'AI service unavailable', details: error instanceof Error ? error.message : 'Unknown error' });
     }
 });
 
